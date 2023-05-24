@@ -55,6 +55,28 @@ app.post('/schedule', async (req, res) => {
 
         console.log(`Backup created successfully: ${repositoryUrl}`);
         console.log(`Infura IPFS CID: ${addedFile.cid}`);
+
+        // Store in db
+        // Create if not exists
+        const backup = await models.Backup.findOne({ repository: repositoryUrl });
+
+        if (!backup) {
+            console.log('Creating new backup')
+            await models.Backup.create({
+                repository: repositoryUrl,
+                backupFrom: new Date(),
+                lastBackup: new Date(),
+                backupFrequency: frequency,
+                backupType: 'zip',
+                CIDs: [addedFile.cid.toString()],
+            });
+        } else {
+            backup.lastBackup = new Date();
+            backup.CIDs.push(addedFile.cid.toString());
+            await backup.save();
+        }
+
+
         // } catch (e) {
         //     console.error(`Error occurred during Infura IPFS upload: ${e}`);
         // }
@@ -80,13 +102,12 @@ app.delete('/schedule/:taskId', (req, res) => {
 });
 
 app.get('/download', (req, res) => {
-    const CID = "QmXq77xeWjoAXya62m3mYMCh4P52ofA59wb1rrU7sv5CyU";
+    // get CID from repo url
+    const { repositoryUrl } = req.body;
+    const CIDs = models.Backup.findOne({ repository: repositoryUrl }).CIDs;
 
-    // get the download url of ipfs file from the CID
-    const downloadUrl = `https://scheduler.infura-ipfs.io/ipfs/${CID}`;
-
-    // return the download url
-    res.json({ downloadUrl });
+    // return the CIDs
+    res.json({ CIDs });
 });
 
 // Start the server

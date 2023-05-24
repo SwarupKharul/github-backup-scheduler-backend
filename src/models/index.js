@@ -6,7 +6,7 @@ const connectDb = () => {
     return mongoose.connect(process.env.DATABASE_URL);
 }
 
-const models = { backupSchema };
+const models = { Backup: backupSchema };
 
 export { connectDb };
 

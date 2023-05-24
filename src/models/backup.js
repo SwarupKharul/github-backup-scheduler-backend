@@ -7,7 +7,7 @@ const backupSchema = new mongoose.Schema({
     },
     backupFrom: {
         type: String,
-        required: true
+        required: true,
     },
     backupFrequency: {
         type: String,
@@ -16,7 +16,16 @@ const backupSchema = new mongoose.Schema({
     backupType: {
         type: String,
         required: true
-    }
+    },
+    lastBackup: {
+        type: String,
+        required: false,
+    },
+    CIDs: {
+        type: Array,
+        required: false,
+        default: [],
+    },
 });
 
 export default mongoose.model('Backup', backupSchema);
