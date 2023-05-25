@@ -1,7 +1,14 @@
-Github Backup Scheduler
+# Github Backup Scheduler
 
 ## Description
 This is a simple backend api that will backup up a github repo locally or on cloud at a given frequency. 
+
+## Tech Stack
+- Node.js
+- Express.js
+- MongoDB
+- Docker
+- Infura IPFS
 
 ## Installation
 1. Clone the repo
@@ -44,3 +51,52 @@ curl -X POST \
     "message":  "Backup scheduled successfully",
 }
 ```
+
+
+### Get all backups
+`GET /schedule`
+
+#### Example
+```bash
+curl -X GET \
+  http://localhost:3000/backup
+```
+
+#### Response
+```json
+[
+  {
+    "_id": "646efe8dfbcd3042566b57b3",
+    "repository": "https://github.com/SwarupKharul/github-backup-scheduler-backend",
+    "backupFrom": "Thu May 25 2023 11:52:05 GMT+0530 (India Standard Time)",
+    "backupFrequency": "now",
+    "backupType": "zip",
+    "lastBackup": "Thu May 25 2023 11:53:03 GMT+0530 (India Standard Time)",
+    "CIDs": [
+      "QmRUe89nMA2dhWh1Z7UK8xxEPFZ95YEHKAjWShZx59kjJY",
+      "QmRUe89nMA2dhWh1Z7UK8xxEPFZ95YEHKAjWShZx59kjJY"
+    ],
+    "__v": 1
+  }
+]
+```
+
+### Delete a backup
+`DELETE /schedule/:CID`
+
+#### Example
+```bash
+curl -X DELETE \
+  http://localhost:3000/schedule/QmRUe89nMA2dhWh1Z7UK8xxEPFZ95YEHKAjWShZx59kjJY
+```
+
+#### Response
+```json
+{
+    "status": 200,
+    "message": "Backup deleted successfully"
+}
+```
+
+## Deployed API
+The API is deployed on Azure. You can access it at `http://4.224.18.83:3000/`

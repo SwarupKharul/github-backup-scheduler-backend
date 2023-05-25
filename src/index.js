@@ -73,10 +73,14 @@ app.post('/schedule', async (req, res) => {
                         await backup.save();
                     }
 
+                    res.status(200).json({
+                        status: 'success',
+                        message: 'Backup scheduled successfully',
+                    });
 
                 } catch (e) {
                     console.error(`Error occurred during Infura IPFS upload: ${e}`);
-                    res.sendStatus(500).json({
+                    res.status(500).json({
                         status: 'error',
                         message: 'Error occurred during Infura IPFS upload',
                     });
@@ -84,12 +88,8 @@ app.post('/schedule', async (req, res) => {
             });
         });
 
-        res.sendStatus(200).json({
-            status: 'success',
-            message: 'Backup scheduled successfully',
-        });
     } catch (e) {
-        res.sendStatus(404).json({
+        res.status(404).json({
             status: 'error',
             message: 'Frequency not supported',
         });
@@ -115,13 +115,13 @@ app.delete('/schedule/:CID', async (req, res) => {
         // Delete the backup from the database
         await models.Backup.deleteOne({ CIDs: CID });
 
-        res.json({
+        res.status(200).json({
             status: 'success',
             message: 'Backup deleted successfully',
         });
 
     } else {
-        res.json({
+        res.status(404).json({
             status: 'error',
             message: 'Backup not found',
         });
@@ -137,9 +137,16 @@ app.get('/download', (req, res) => {
     res.json({ CIDs });
 });
 
-app.get('/backups', async (req, res) => {
+app.get('/schedule', async (req, res) => {
     const backups = await models.Backup.find();
     res.json(backups);
+});
+
+app.get('/', (req, res) => {
+    res.status(200).json({
+        status: 'success',
+        message: 'Welcome to the backup service',
+    });
 });
 
 // Start the server
