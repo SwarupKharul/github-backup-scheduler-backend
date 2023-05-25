@@ -33,71 +33,98 @@ app.post('/schedule', async (req, res) => {
         'monthly': '0 0 1 * *',
         'now': '* * * * *',
     };
+    try {
+        // // Schedule the backup task
+        scheduledBackups[repositoryUrl] = schedule(frequencyMap[frequency], async () => {
+            const backupCommand = `wget ${repositoryUrl}/archive/master.zip -O backup.zip`;
+            exec(backupCommand, async (error, stdout, stderr) => {
+                if (error) {
+                    console.error(`Error occurred during backup: ${error.message}`);
+                    return;
+                }
 
-    // Create a unique identifier for the backup task
-    const taskId = Math.random().toString(36).substring(7);
+                // prepare the zip file to be uploaded
+                const zipFile = fs.readFileSync('backup.zip');
 
-    // // Schedule the backup task
-    // scheduledBackups[taskId] = schedule(frequencyMap[frequency], async () => {
-    const backupCommand = `wget ${repositoryUrl}/archive/master.zip -O backup.zip`;
-    exec(backupCommand, async (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error occurred during backup: ${error.message}`);
-            return;
-        }
+                try {
+                    // Add the ZIP file to Infura IPFS
+                    const addedFile = await ipfs.add(zipFile)
 
-        // prepare the zip file to be uploaded
-        const zipFile = fs.readFileSync('backup.zip');
+                    console.log(`Backup created successfully: ${repositoryUrl}`);
+                    console.log(`Infura IPFS CID: ${addedFile.cid}`);
 
-        // try {
-        // Add the ZIP file to Infura IPFS
-        const addedFile = await ipfs.add(zipFile)
+                    // Store in db
+                    // Create if not exists
+                    const backup = await models.Backup.findOne({ repository: repositoryUrl });
 
-        console.log(`Backup created successfully: ${repositoryUrl}`);
-        console.log(`Infura IPFS CID: ${addedFile.cid}`);
+                    if (!backup) {
+                        console.log('Creating new backup')
+                        await models.Backup.create({
+                            repository: repositoryUrl,
+                            backupFrom: new Date(),
+                            lastBackup: new Date(),
+                            backupFrequency: frequency,
+                            backupType: 'zip',
+                            CIDs: [addedFile.cid.toString()],
+                        });
+                    } else {
+                        backup.lastBackup = new Date();
+                        backup.CIDs.push(addedFile.cid.toString());
+                        await backup.save();
+                    }
 
-        // Store in db
-        // Create if not exists
-        const backup = await models.Backup.findOne({ repository: repositoryUrl });
 
-        if (!backup) {
-            console.log('Creating new backup')
-            await models.Backup.create({
-                repository: repositoryUrl,
-                backupFrom: new Date(),
-                lastBackup: new Date(),
-                backupFrequency: frequency,
-                backupType: 'zip',
-                CIDs: [addedFile.cid.toString()],
+                } catch (e) {
+                    console.error(`Error occurred during Infura IPFS upload: ${e}`);
+                    res.sendStatus(500).json({
+                        status: 'error',
+                        message: 'Error occurred during Infura IPFS upload',
+                    });
+                }
             });
-        } else {
-            backup.lastBackup = new Date();
-            backup.CIDs.push(addedFile.cid.toString());
-            await backup.save();
-        }
+        });
 
-
-        // } catch (e) {
-        //     console.error(`Error occurred during Infura IPFS upload: ${e}`);
-        // }
-    });
-    // });
-
-    res.json({ taskId });
+        res.sendStatus(200).json({
+            status: 'success',
+            message: 'Backup scheduled successfully',
+        });
+    } catch (e) {
+        res.sendStatus(404).json({
+            status: 'error',
+            message: 'Frequency not supported',
+        });
+    }
 });
 
-// Endpoint to cancel a scheduled backup
-app.delete('/schedule/:taskId', (req, res) => {
-    const { taskId } = req.params;
+// Endpoint to delete a scheduled backup
+app.delete('/schedule/:CID', async (req, res) => {
+    // get repo url from CID
+    const { CID } = req.params;
+    const backup = await models.Backup.findOne({ CIDs: CID });
+
+    console.log(`Deleting backup for ${backup.repository}`);
+
+    const repositoryUrl = backup.repository;
 
     // Check if the task exists
-    if (scheduledBackups[taskId]) {
+    if (scheduledBackups[repositoryUrl]) {
         // Stop and remove the scheduled task
-        scheduledBackups[taskId].stop();
-        delete scheduledBackups[taskId];
-        res.sendStatus(200);
+        scheduledBackups[repositoryUrl].stop();
+        delete scheduledBackups[repositoryUrl];
+
+        // Delete the backup from the database
+        await models.Backup.deleteOne({ CIDs: CID });
+
+        res.json({
+            status: 'success',
+            message: 'Backup deleted successfully',
+        });
+
     } else {
-        res.sendStatus(404);
+        res.json({
+            status: 'error',
+            message: 'Backup not found',
+        });
     }
 });
 
@@ -108,6 +135,11 @@ app.get('/download', (req, res) => {
 
     // return the CIDs
     res.json({ CIDs });
+});
+
+app.get('/backups', async (req, res) => {
+    const backups = await models.Backup.find();
+    res.json(backups);
 });
 
 // Start the server
